@@ -134,7 +134,7 @@ def parse_svn_diff_info(svn_diff_str, filter_files):
 	return diff_info_dict
 
 
-def WriteDiffInfoPerFile(TNName, InfoDict):
+def user_diff_info_per_file(TNName, InfoDict):
 	if len(InfoDict) == 0:
 		return ''
 
@@ -152,30 +152,25 @@ def WriteDiffInfoPerFile(TNName, InfoDict):
 				user_diff_info += "LF:{}\n".format(LFCount)
 				user_diff_info += "LH:{}\n".format(LHCount)
 			user_diff_info += l
-			
+
 	return user_diff_info
 
-
-def write_user_coverage_info(coverage_info, DiffDict, user, user_lines):
-	InfoDict = {}
-	
-	DiffInfoOut = os.path.join(coverage_folder, coverage_diff_file)
-	DiffInfoOutFile = OpenFile(DiffInfoOut, "w")
-
-	DiffInfoInFile = OpenFile(coverage_info, "r") 
-	DiffInfoInFileIter = iter(DiffInfoInFile)
+def user_coverage_info_all_files(coverage_info, svn_diff_info, user, user_lines):
+	with open(coverage_info, 'r') as f:
+		coverage_info_lines = f.readlines()
 
 	TNName = ""
+	user_diff_info = ""
 
-	for l in DiffInfoInFileIter:
+	for l in coverage_info_lines:
+		# TN means a new file parse
 		if l[:3] == "TN:":
-			WriteDiffInfoPerFile(DiffInfoOutFile,TNName,InfoDict)
+			user_diff_info += user_diff_info_per_file(TNName,InfoDict)
 			TNName = l[3:].strip()
 			InfoDict = {}
-	
-		if l[:3] == "SF:":
+		else if l[:3] == "SF:":
 			SF = l.strip().split(":")[-1].split("/")[-1]
-			if SF in DiffDict:
+			if SF in svn_diff_info:
 				InfoDict[SF] = []	
 				InfoDict[SF].append(l)	
 	
@@ -183,7 +178,7 @@ def write_user_coverage_info(coverage_info, DiffDict, user, user_lines):
 				if SF in InfoDict:
 					if l[:3] == "DA:":
 						Line = int(l.strip().split(":")[-1].split(",")[0])
-						if Line in DiffDict[SF] and (user is None or Line in user_lines[SF]):
+						if Line in svn_diff_info[SF] and (user is None or Line in user_lines[SF]):
 							InfoDict[SF].append(l)
 				l = DiffInfoInFileIter.next()
 			else:
@@ -193,9 +188,20 @@ def write_user_coverage_info(coverage_info, DiffDict, user, user_lines):
 					else:
 						del InfoDict[SF]
 	else:
-		WriteDiffInfoPerFile(DiffInfoOutFile,TNName,InfoDict)
-				
-	DiffInfoInFile.close()
+		user_diff_info += user_diff_info_per_file(TNName,InfoDict)	
+
+	return user_diff_info
+
+
+def write_user_coverage_info(coverage_info, svn_diff_info, user, user_lines):
+	user_diff_info = make_user_coverage_info(coverage_info, svn_diff_info, user, user_lines)
+		
+	with open("")	
+
+	user_coverage_info = os.path.join(coverage_folder, user)
+	DiffInfoOutFile = OpenFile(DiffInfoOut, "w")	
+
+
 	DiffInfoOutFile.close()
 	
 	FileLen = os.stat(DiffInfoOut).st_size
@@ -281,7 +287,7 @@ def main():
 			WriteBlankInfo()
 			sys.exit(0)	
 
-		genhtml_output = write_user_coverage_info(conf["coverage_info"], diff_info_dict, user, user_lines)
+		genhtml_output = make_user_coverage_info(conf["coverage_info"], diff_info_dict, user, user_lines)
 
 	#TODO:get coverage rate and write it to file and show 
 
